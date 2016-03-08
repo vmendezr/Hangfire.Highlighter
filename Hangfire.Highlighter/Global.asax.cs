@@ -4,6 +4,9 @@ using System.Linq;
 using System.Web;
 using System.Web.Mvc;
 using System.Web.Routing;
+using Hangfire.Highlighter.Models;
+using System.Data.Entity;
+using Hangfire.Highlighter.Migrations;
 
 namespace Hangfire.Highlighter
 {
@@ -13,6 +16,8 @@ namespace Hangfire.Highlighter
         {
             AreaRegistration.RegisterAllAreas();
             RouteConfig.RegisterRoutes(RouteTable.Routes);
+
+            Database.SetInitializer(new MigrateDatabaseToLatestVersion<HighlighterDbContext, Configuration>());
         }
 
         protected void Application_BeginRequest()

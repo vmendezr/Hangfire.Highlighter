@@ -38,15 +38,20 @@ namespace Hangfire.Highlighter.Controllers
                 {
                     snippet.CreatedAt = DateTime.UtcNow;
 
-                    using (StackExchange.Profiling.MiniProfiler.StepStatic("Service call"))
-                    {
-                        snippet.HighlightedCode = HighlightSource(snippet.SourceCode);
-                        snippet.HighlightedAt = DateTime.UtcNow;
-                    }
+                    //using (StackExchange.Profiling.MiniProfiler.StepStatic("Service call"))
+                    //{
+                    //    snippet.HighlightedCode = HighlightSource(snippet.SourceCode);
+                    //    snippet.HighlightedAt = DateTime.UtcNow;
+                    //}
 
                     _db.CodeSnippets.Add(snippet);
                     _db.SaveChanges();
 
+                    using (StackExchange.Profiling.MiniProfiler.StepStatic("Queuing job"))
+                    {
+                        // Enqueue highlighting job
+                        BackgroundJob.Enqueue(() => HighlightSource(snippet.Id));
+                    }
                     return RedirectToAction("Details", new { id = snippet.Id });
                 }
 
@@ -92,6 +97,25 @@ namespace Hangfire.Highlighter.Controllers
             // Microsoft.Net.Http does not provide synchronous API,
             // so we are using wrapper to perform a sync call.
             return RunSync(() => HighlightSourceAsync(source));
+        }
+
+        public void HighlightSource(int codeSnippetId)
+        {
+            try
+            {
+                CodeSnippet codeSnippet = _db.CodeSnippets.Find(codeSnippetId);
+                if (codeSnippet != null)
+                {
+                    codeSnippet.HighlightedCode = HighlightSource(codeSnippet.SourceCode);
+                    codeSnippet.HighlightedAt = DateTime.UtcNow;
+                }
+                _db.SaveChanges();
+            }
+            catch (Exception ex)
+            {
+
+                throw; // Todo: handle exception
+            }
         }
 
         private static TResult RunSync<TResult>(Func<Task<TResult>> func)
